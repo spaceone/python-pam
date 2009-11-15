@@ -7,6 +7,8 @@ export DH_COMPAT=5
 
 PYVERS=$(shell pyversions -r) python2.5
 
+-include /usr/share/python/python.mk
+
 build: build-stamp
 build-stamp:
 	dh_testdir
@@ -30,7 +32,7 @@ install: build
 	dh_installdirs
 
 	for python in $(PYVERS); \
-		do $$python setup.py install --root=debian/python-pam; \
+		do $$python setup.py install --root=debian/python-pam --prefix=/usr $(py_setup_install_args); \
 	done
 
 # Build architecture-independent files here.

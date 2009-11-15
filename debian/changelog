@@ -1,3 +1,14 @@
+python-pam (0.4.2-12.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Prepare for the upcoming Python 2.6 transition; thanks to Piotr Ożarowski
+    for the bug report and to Kumar Appaiah for the patch; Closes: #556162
+    - debian/rules
+      + optionally include python.mk, add $(py_setup_install_args) and
+        --prefix=/usr when installing
+
+ -- Sandro Tosi <morph@debian.org>  Sun, 15 Nov 2009 21:36:54 +0100
+
 python-pam (0.4.2-12) unstable; urgency=low
 
   * Added Build-Depends: python2.5-dev (Closes: #415377)
