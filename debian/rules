@@ -5,7 +5,7 @@
 # This is the debhelper compatibility version to use.
 export DH_COMPAT=5
 
-PYVERS=$(shell pyversions -r) python2.5
+PYVERS=$(shell pyversions -r)
 
 -include /usr/share/python/python.mk
 

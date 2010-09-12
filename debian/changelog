@@ -1,3 +1,10 @@
+python-pam (0.4.2-12.2) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Remove build-dependency on python2.5-dev. Closes: #596314.
+
+ -- Matthias Klose <doko@debian.org>  Sun, 12 Sep 2010 15:37:47 +0200
+
 python-pam (0.4.2-12.1) unstable; urgency=low
 
   * Non-maintainer upload.
