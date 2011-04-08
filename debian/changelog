@@ -1,3 +1,12 @@
+python-pam (0.4.2-12.3) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Use python-support (closes: #620283).
+    + Add build-dependency on python-support.
+    + In debian/rules, replace call to dh_python with dh_pysupport.
+
+ -- Jakub Wilk <jwilk@debian.org>  Fri, 08 Apr 2011 21:08:10 +0200
+
 python-pam (0.4.2-12.2) unstable; urgency=low
 
   * Non-maintainer upload.

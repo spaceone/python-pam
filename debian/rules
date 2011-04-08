@@ -48,9 +48,7 @@ binary-arch: build install
 	dh_strip -a
 	dh_compress -a
 	dh_fixperms -a
-	#dh_pycentral is not needed as we don't have .py files (only a .so)
-	#dh_pycentral -a
-	dh_python -a
+	dh_pysupport -a
 	dh_installdeb -a
 	dh_shlibdeps -a
 	dh_gencontrol -a
