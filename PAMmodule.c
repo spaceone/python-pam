@@ -80,6 +80,7 @@ static int PyPAM_conv(int num_msg, const struct pam_message **msg,
         resp_retcode = 0;
         if (!PyArg_ParseTuple(respTuple, "si", &resp_text, &resp_retcode)) {
             free(*resp);
+            *resp = NULL;
             Py_DECREF(respList);
             return PAM_CONV_ERR;
         }

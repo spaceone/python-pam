@@ -9,8 +9,10 @@ lets you write Python applications that implement authentication
 using PAM.
 
 No documentation yet. The module is mostly a wrapper around the PAM library
-functions. There's a simple example included in /usr/doc/python-pam/examples.
+functions. There's a simple example included in /usr/share/doc/python-pam/examples.
 
 
    28.08.1999,
    Gregor Hoffleit <flight@debian.org>
+
+ -- Dima Barsky <dima@debian.org>, Tue,  6 Mar 2012 22:20:11 +0000

@@ -1,3 +1,12 @@
+python-pam (0.4.2-13) unstable; urgency=high
+
+  * Acknowledged NMUs
+  * Fixed a security vulnerability in PyPAM_conv
+    (thanks Markus Vervier <markus.vervier@lsexperts.de> 
+    for the report and the patch)
+
+ -- Dima Barsky <dima@debian.org>  Tue, 06 Mar 2012 21:48:38 +0000
+
 python-pam (0.4.2-12.3) unstable; urgency=low
 
   * Non-maintainer upload.

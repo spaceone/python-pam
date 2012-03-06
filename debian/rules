@@ -3,13 +3,16 @@
 #export DH_VERBOSE=1
 
 # This is the debhelper compatibility version to use.
-export DH_COMPAT=5
+#export DH_COMPAT=5
 
 PYVERS=$(shell pyversions -r)
 
 -include /usr/share/python/python.mk
 
-build: build-stamp
+build: build-arch build-indep
+build-arch: build-stamp
+build-indep: build-stamp
+
 build-stamp:
 	dh_testdir
 	for python in $(PYVERS); \
@@ -48,7 +51,7 @@ binary-arch: build install
 	dh_strip -a
 	dh_compress -a
 	dh_fixperms -a
-	dh_pysupport -a
+	dh_python2 -a
 	dh_installdeb -a
 	dh_shlibdeps -a
 	dh_gencontrol -a
