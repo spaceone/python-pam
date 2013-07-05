@@ -4,7 +4,7 @@ Priority: optional
 Build-Depends: debhelper (>= 5.0.37.2), python-all-dev (>= 2.3.5-11), libpam0g-dev, python-support
 Maintainer: Dima Barsky <dima@debian.org>
 Standards-Version: 3.9.3
-X-Python-Version: 2.6, 2.7
+X-Python-Version: >= 2.6
 
 Package: python-pam
 Architecture: any
