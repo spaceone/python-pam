@@ -1,8 +1,9 @@
 Source: python-pam
 Section: python
 Priority: optional
-Build-Depends: debhelper (>= 5.0.37.2), python-all-dev (>= 2.3.5-11), libpam0g-dev, dh-python
-Maintainer: Dima Barsky <dima@debian.org>
+Build-Depends: debhelper (>= 9), python-all-dev (>= 2.3.5-11), python-all-dbg, python3-all-dev, python3-all-dbg, libpam0g-dev, dh-python
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+XSBC-Original-Maintainer: Dima Barsky <dima@debian.org>
 Standards-Version: 3.9.3
 X-Python-Version: >= 2.6
 
@@ -11,8 +12,39 @@ Architecture: any
 Depends: ${python:Depends}, ${shlibs:Depends}, ${misc:Depends}
 Conflicts: python2.3-pam, python2.4-pam
 Replaces: python2.3-pam, python2.4-pam
-Provides: ${python:Provides}
+Suggests: python-pam-dbg
 Description: Python interface to the PAM library
  This module makes the PAM (Pluggable Authentication Modules) functions
  available in Python. With this module you can write Python applications
  that implement authentication services using PAM.
+
+Package: python-pam-dbg
+Priority: extra
+Architecture: any
+Depends: python-pam (= ${binary:Version}), ${python:Depends}, ${shlibs:Depends}, ${misc:Depends}
+Description: Python interface to the PAM library (debug extension)
+ This module makes the PAM (Pluggable Authentication Modules) functions
+ available in Python. With this module you can write Python applications
+ that implement authentication services using PAM.
+ .
+ This package contains the extension built for the python debug interpreter.
+
+Package: python3-pam
+Architecture: any
+Depends: ${python3:Depends}, ${shlibs:Depends}, ${misc:Depends}
+Suggests: python3-pam-dbg
+Description: Python interface to the PAM library
+ This module makes the PAM (Pluggable Authentication Modules) functions
+ available in Python 3. With this module you can write Python 3 applications
+ that implement authentication services using PAM.
+
+Package: python3-pam-dbg
+Priority: extra
+Architecture: any
+Depends: python3-pam (= ${binary:Version}), ${python3:Depends}, ${shlibs:Depends}, ${misc:Depends}
+Description: Python interface to the PAM library (debug extension)
+ This module makes the PAM (Pluggable Authentication Modules) functions
+ available in Python 3. With this module you can write Python 3 applications
+ that implement authentication services using PAM.
+ .
+ This package contains the extension built for the python debug interpreter.

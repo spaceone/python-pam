@@ -24,7 +24,7 @@ typedef struct {
     PyObject            *userData;
 } PyPAMObject;
 
-staticforward PyTypeObject PyPAMObject_Type;
+static PyTypeObject PyPAMObject_Type;
 
 static void PyPAM_Err(PyPAMObject *self, int result)
 {
@@ -107,7 +107,7 @@ static PyObject * PyPAM_pam(PyObject *self, PyObject *args)
     PyPAMObject         *p;
     struct pam_conv     *spc;
 
-    PyPAMObject_Type.ob_type = &PyType_Type;
+    Py_TYPE(&PyPAMObject_Type) = &PyType_Type;
     p = (PyPAMObject *) PyObject_NEW(PyPAMObject, &PyPAMObject_Type);
 
     if ((spc = (struct pam_conv *) malloc(sizeof(struct pam_conv))) == NULL) {
@@ -490,41 +490,49 @@ static void PyPAM_dealloc(PyPAMObject *self)
     PyObject_FREE(self);
 }
 
-static PyObject * PyPAM_getattr(PyPAMObject *self, char *name)
-{
-    return Py_FindMethod(PyPAMObject_Methods, (PyObject *) self, name);
-}
-
 static PyObject * PyPAM_repr(PyPAMObject *self)
 {
     char                buf[1024];
     
     snprintf(buf, 1024, "<pam object, service=\"%s\", user=\"%s\", conv=%p, pamh=%p>",
         self->service, self->user, self->conv, self->pamh);
-    return PyString_FromString(buf);
+    return PyUnicode_FromString(buf);
 }
 
 static PyTypeObject PyPAMObject_Type = {
-    PyObject_HEAD_INIT(0)   /* Must fill in type value later */
-    0,
+    PyVarObject_HEAD_INIT(&PyType_Type, 0)   /* Must fill in type value later */
     "pam",
     sizeof(PyPAMObject),
     0,
     (destructor)PyPAM_dealloc,      /*tp_dealloc*/
     0,      /*tp_print*/
-    (getattrfunc)PyPAM_getattr,     /*tp_getattr*/
+    0,      /*tp_getattr*/
     0,      /*tp_setattr*/
     0,      /*tp_compare*/
     (reprfunc)PyPAM_repr,           /*tp_repr*/
     0,      /*tp_as_number*/
     0,      /*tp_as_sequence*/
     0,      /*tp_as_mapping*/
+    0,      /*hash*/
+    0,      /*ternary*/
+    0,      /*another repr*/
+    (getattrofunc)PyObject_GenericGetAttr,
 };
 
 static PyMethodDef PyPAM_Methods[] = {
     {"pam", PyPAM_pam, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}
 };
+
+#if PY_MAJOR_VERSION > 2
+static struct PyModuleDef PyPAM_Module = {
+    PyModuleDef_HEAD_INIT,
+    "PAM",    /* name of module */
+    NULL,     /* module documentation */
+    -1,       /* size of per-interpreter state */
+    PyPAM_Methods
+};
+#endif
 
 static char PyPAMObject_doc[] = "";
 
@@ -535,7 +543,11 @@ static char PyPAMObject_doc[] = "";
  */
 static void insint(PyObject *d, char *name, int value)
 {
+#if PY_MAJOR_VERSION > 2
+    PyObject            *v = PyLong_FromLong((long) value);
+#else
     PyObject            *v = PyInt_FromLong((long) value);
+#endif
 
     if (!v || PyDict_SetItemString(d, name, v))
         PyErr_Clear();
@@ -543,20 +555,32 @@ static void insint(PyObject *d, char *name, int value)
     Py_XDECREF(v);
 }
 
+#if PY_MAJOR_VERSION > 2
+PyMODINIT_FUNC PyInit_PAM(void)
+#else
 void initPAM(void)
+#endif
 {
     PyObject            *m, *d;
 
+#if PY_MAJOR_VERSION > 2
+    m = PyModule_Create(&PyPAM_Module);
+#else
     m = Py_InitModule("PAM", PyPAM_Methods);
+#endif
     d = PyModule_GetDict(m);
     
     PyPAM_Error = PyErr_NewException("PAM.error", NULL, NULL);
     if (PyPAM_Error == NULL)
-        return;
+#if PY_MAJOR_VERSION > 2
+		return m;
+#else
+		return;
+#endif
     PyDict_SetItemString(d, "error", PyPAM_Error);
 
-    PyPAMObject_Type.ob_type = &PyType_Type;
     PyPAMObject_Type.tp_doc = PyPAMObject_doc;
+    PyPAMObject_Type.tp_methods = PyPAMObject_Methods,
     Py_INCREF(&PyPAMObject_Type);
 
     insint(d, "PAM_SUCCESS", PAM_SUCCESS);
@@ -620,4 +644,7 @@ void initPAM(void)
     insint(d, "PAM_BINARY_PROMPT", PAM_BINARY_PROMPT);
 #endif
 
+#if PY_MAJOR_VERSION > 2
+    return m;
+#endif
 }

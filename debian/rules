@@ -1,62 +1,24 @@
 #!/usr/bin/make -f
-# Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
 
-# This is the debhelper compatibility version to use.
-#export DH_COMPAT=5
+export PYBUILD_DESTDIR_python2=debian/python-pam/
+export PYBUILD_DESTDIR_python2-dbg=debian/python-pam-dbg/
+export PYBUILD_DESTDIR_python3=debian/python3-pam/
+export PYBUILD_DESTDIR_python3-dbg=debian/python3-pam-dbg/
 
-PYVERS=$(shell pyversions -r)
+%:
+	dh $@ --with python2,python3 --buildsystem=pybuild
 
--include /usr/share/python/python.mk
-
-build: build-arch build-indep
-build-arch: build-stamp
-build-indep: build-stamp
-
-build-stamp:
-	dh_testdir
-	for python in $(PYVERS); \
-		do $$python setup.py build; \
-	done
-	touch build-stamp
-
-clean:
-	dh_testdir
-	for python in $(PYVERS); \
-		do $$python setup.py clean; \
-	done
-	rm -rf build-stamp build
+override_dh_clean:
+	rm -rf build
+	rm -rf *.egg-info
 	dh_clean
 
-install: build
-	dh_testdir
-	dh_testroot
-	dh_clean -k
-	dh_installdirs
+override_dh_installdocs:
+	dh_installdocs AUTHORS README
 
-	for python in $(PYVERS); \
-		do $$python setup.py install --root=debian/python-pam --prefix=/usr $(py_setup_install_args); \
-	done
-
-# Build architecture-independent files here.
-binary-indep: build install
-
-# Build architecture-dependent files here.
-binary-arch: build install
-	dh_testdir
-	dh_testroot
-	dh_installdocs -a -A AUTHORS README
-	dh_installexamples -a -A examples/*
-	dh_installchangelogs -a ChangeLog
-	dh_strip -a
-	dh_compress -a
-	dh_fixperms -a
-	dh_python2 -a
-	dh_installdeb -a
-	dh_shlibdeps -a
-	dh_gencontrol -a
-	dh_md5sums -a
-	dh_builddeb -a
-
-binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary
+override_dh_installchangelogs:
+	dh_installchangelogs ChangeLog
+	rm -rf debian/python-pam-dbg/usr/share/doc/python-pam-dbg
+	ln -sf python-pam debian/python-pam-dbg/usr/share/doc/python-pam-dbg
+	rm -rf debian/python3-pam-dbg/usr/share/doc/python3-pam-dbg
+	ln -sf python3-pam debian/python3-pam-dbg/usr/share/doc/python3-pam-dbg

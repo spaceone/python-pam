@@ -7,7 +7,7 @@ from distutils.core import setup
 from distutils.extension import Extension
 
 ext = Extension(
-    name="PAMmodule",
+    name="PAM",
     libraries=["pam","pam_misc"],
     sources=["PAMmodule.c"]
 )
