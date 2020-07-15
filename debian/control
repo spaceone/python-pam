@@ -1,0 +1,18 @@
+Source: python-pam
+Section: python
+Priority: optional
+Build-Depends: debhelper (>= 5.0.37.2), python-all-dev (>= 2.3.5-11), python2.5-dev, libpam0g-dev
+Maintainer: Dima Barsky <dima@debian.org>
+Standards-Version: 3.7.2
+
+Package: python-pam
+Architecture: any
+Depends: ${python:Depends}, ${shlibs:Depends}
+Conflicts: python2.3-pam, python2.4-pam
+Replaces: python2.3-pam, python2.4-pam
+Provides: ${python:Provides}
+XB-Python-Version: ${python:Versions}
+Description: A Python interface to the PAM library
+ This module makes the PAM (Pluggable Authentication Modules) functions
+ available in Python. With this module you can write Python applications
+ that implement authentication services using PAM.

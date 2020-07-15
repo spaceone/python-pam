@@ -1,0 +1,48 @@
+1999-08-17 06:48  cvs
+
+	* pamtest.py: Fix up example files a bit.
+
+1999-08-17 06:47  cvs
+
+	* examples/pamtest.py: Fix up the example files a bit.
+
+1999-08-17 06:27  cvs
+
+	* PAMmodule.c, pamtest.py: getpass.getpass() is not cooperating in
+	the demo program. It seems to require that raw_input() be run
+        before it gets run. Strange.
+
+1999-08-17 04:46  cvs
+
+	* PAMmodule.c, pamtest.py: Remove debugging code. Fix the
+        PyPAM_conv callback code. Fix the pamtest.py example.
+
+1999-08-17 02:47  cvs
+
+	* Makefile, Makefile.in, PAMmodule.c, pamtest.py,
+	.deps/PAMmodule.P: Figured out the silly shared library issues with
+	Python. Solved with dlopen()/dlclose() using RTLD_GLOBAL. This
+        should not be a problem, since PAM is fairly name-space friendly.
+
+1999-08-16 23:21  cvs
+
+	* COPYING, INSTALL, PAMmodule.c, install-sh, missing,
+	mkinstalldirs, py-compile: Added missing files. Added revision
+        string to PAMmodule.
+
+1999-08-16 23:10  cvs
+
+	* AUTHORS, Makefile, Makefile.am, Makefile.in, NEWS, PAMmodule.c,
+	PyPAM.spec, README, aclocal.m4, autogen.sh, config.cache,
+	config.log, config.status, configure, configure.in, pamtest.py,
+	.deps/PAMmodule.P, examples/pamexample, examples/pamexample.c,
+        examples/pamtest.py: [no log message]
+
+1999-08-16 23:10  cvs
+
+	* AUTHORS, Makefile, Makefile.am, Makefile.in, NEWS, PAMmodule.c,
+	PyPAM.spec, README, aclocal.m4, autogen.sh, config.cache,
+	config.log, config.status, configure, configure.in, pamtest.py,
+	.deps/PAMmodule.P, examples/pamexample, examples/pamexample.c,
+        examples/pamtest.py: Initial revision
+

@@ -1,0 +1,117 @@
+python-pam (0.4.2-12) unstable; urgency=low
+
+  * Added Build-Depends: python2.5-dev (Closes: #415377)
+
+ -- Dima Barsky <dima@debian.org>  Mon, 19 Mar 2007 15:51:05 +0000
+
+python-pam (0.4.2-11) unstable; urgency=low
+
+  * Acknowledged NMUs
+  * Added 2.5 support (thanks to Harro Verkouter <verkouter@jive.nl>)
+
+ -- Dima Barsky <dima@debian.org>  Sat, 17 Mar 2007 17:46:16 +0000
+
+python-pam (0.4.2-10.4) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Add the missing Conflicts/Replaces on python2.X-pam.
+
+ -- Raphael Hertzog <hertzog@debian.org>  Thu, 29 Jun 2006 08:46:49 +0200
+
+python-pam (0.4.2-10.3) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Switch to the new Python policy. Closes: #373335
+
+ -- Raphael Hertzog <hertzog@debian.org>  Sun, 25 Jun 2006 17:34:49 +0200
+
+python-pam (0.4.2-10.2) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Stop building module for python2.1 and python2.2. (Closes: #351148)
+  * Also support python2.4.
+
+ -- Pierre Habouzit <madcoder@debian.org>  Sun,  9 Apr 2006 19:38:00 +0200
+
+python-pam (0.4.2-10.1) unstable; urgency=low
+
+  * NMU.
+  * Change package section to python.
+  * Make python dependency more robust.
+  * Make python-pam package architecture all.
+
+ -- Matthias Klose <doko@debian.org>  Sun, 28 Sep 2003 17:27:51 +0200
+
+python-pam (0.4.2-10) unstable; urgency=low
+
+  * Python2.3 is the default version now
+
+ -- Dima Barsky <dima@debian.org>  Sat,  9 Aug 2003 19:44:56 +0100
+
+python-pam (0.4.2-9) unstable; urgency=low
+
+  * Removed all calls to dlopen and dlclose. Not sure why they were
+    required before, but they only cause problems now. (Closes: #192005)
+
+ -- Dima Barsky <dima@debian.org>  Sat, 10 May 2003 19:37:43 +0100
+
+python-pam (0.4.2-8) unstable; urgency=low
+
+  * python2.2-pam: now conflicts with python-pam (<=0.4.2-6)
+    (Closes: #182949)
+  * Added userData parameter to pam_conv function in pamtest.py,
+    this test was broken in 0.4.2-7
+
+ -- Dima Barsky <dima@debian.org>  Mon, 10 Mar 2003 21:51:02 +0000
+
+python-pam (0.4.2-7) unstable; urgency=low
+
+  * Build three versions of python-pam for all Python
+    versions (Closes: #181325)
+  * Added user argument to the conversation method, thanks to Benjamin
+    Poussin <poussin@codelutin.com> for the patch. (Closes: #170972)
+
+ -- Dima Barsky <dima@debian.org>  Sun, 23 Feb 2003 10:55:15 +0000
+
+python-pam (0.4.2-6) unstable; urgency=low
+
+  * Removed compiled binary examples/pamexample from the package
+
+ -- Dima Barsky <dima@debian.org>  Sat, 26 Oct 2002 02:49:54 +0100
+
+python-pam (0.4.2-5) unstable; urgency=low
+
+  * Added build dependency on libpam0g-dev (Closes: #166365)
+
+ -- Dima Barsky <dima@debian.org>  Fri, 25 Oct 2002 20:38:46 +0100
+
+python-pam (0.4.2-4) unstable; urgency=low
+
+  * Taken over from Gregor Hoffleit
+  * Compiled against python 2.2
+  * Replaced autoconf/automake by setup.py script
+  * Bumped up Standards-Sersion to 3.5.7
+
+ -- Dima Barsky <dima@debian.org>  Wed, 16 Oct 2002 14:45:50 +0100
+  
+python-pam (0.4.2-3) unstable; urgency=low
+
+  * Recompiled for unstable (closes: #66359).
+  * Fixed buglet in examples/pamtest.py.
+
+ -- Gregor Hoffleit <flight@debian.org>  Sun, 28 Jan 2001 20:35:44 +0100
+
+python-pam (0.4.2-2) unstable; urgency=low
+
+  * FHS transition: move documentation to /usr/share/doc.
+  * Bumped up standards-version to 3.1.0.
+
+ -- Gregor Hoffleit <flight@debian.org>  Thu, 13 Jan 2000 00:06:45 +0100
+
+python-pam (0.4.2-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Gregor Hoffleit <flight@debian.org>  Sat, 28 Aug 1999 19:20:23 +0200
+
+
