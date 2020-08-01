@@ -3,14 +3,17 @@
  *
  * Python PAM module
  *
- * Copyright (c) 1999 Rob Riggs and tummy.com, Ltd. All rights reserved.
- * Copyright (c) 2002 Benjamin POUSSIN and codelutin.com. All rights reserved.
- * Released under GNU GPL version 2.
+ * Copyright (c) 1999, 2006 Rob Riggs and tummy.com, Ltd. All rights reserved.
+ * Released under GNU LGPL version 2.1.
  */
 
-#include <Python.h>
+static char revision[] = "$Id: PAMmodule.c,v 1.3 2007/04/18 03:55:11 rob Exp $";
+
 #include <security/pam_appl.h>
 #include <security/pam_misc.h>
+#include <Python.h>
+#include <stdio.h>
+#include <dlfcn.h>
 
 static PyObject *PyPAM_Error;
 
@@ -21,10 +24,13 @@ typedef struct {
     char                *service;
     char                *user;
     PyObject            *callback;
-    PyObject            *userData;
+    struct pam_response *response_data;
+    int                 response_len;
+    PyObject            *user_data;
+    void                *dlh1, *dlh2;
 } PyPAMObject;
 
-static PyTypeObject PyPAMObject_Type;
+staticforward PyTypeObject PyPAMObject_Type;
 
 static void PyPAM_Err(PyPAMObject *self, int result)
 {
@@ -33,34 +39,39 @@ static void PyPAM_Err(PyPAMObject *self, int result)
 
     err_msg = pam_strerror(self->pamh, result);
     error = Py_BuildValue("(si)", err_msg, result);
+    Py_INCREF(PyPAM_Error);
     PyErr_SetObject(PyPAM_Error, error);
 }
 
 static int PyPAM_conv(int num_msg, const struct pam_message **msg,
     struct pam_response **resp, void *appdata_ptr)
 {
-    int                 i;
-    PyPAMObject         *self = (PyPAMObject *) appdata_ptr;
-    PyObject            *msgTuple, *respList, *msgList, *args;
-    PyObject            *respTuple;
-    char                *resp_text;
-    int                 resp_retcode;
-    struct pam_response *spr;
+    PyObject                *args;
 
+    PyPAMObject* self = (PyPAMObject *) appdata_ptr;
     if (self->callback == NULL)
         return PAM_CONV_ERR;
 
     Py_INCREF(self);
 
-    msgList = PyList_New(num_msg);
+    if (NULL != self->response_data) {
+        for (int i = 0; i < self->response_len; i++) {
+            free(self->response_data[0].resp);
+        }
+        free(self->response_data);
+        self->response_data = NULL;
+        self->response_len = 0;
+    }
+
+    PyObject* msgList = PyList_New(num_msg);
     
-    for (i = 0; i < num_msg; i++) {
-        msgTuple = Py_BuildValue("(si)", msg[i]->msg, msg[i]->msg_style);
-        PyList_SetItem(msgList, i, msgTuple);
+    for (int i = 0; i < num_msg; i++) {
+        PyList_SetItem(msgList, i,
+            Py_BuildValue("(si)", msg[i]->msg, msg[i]->msg_style));
     }
     
-    args = Py_BuildValue("(OOO)", self, msgList, self->userData);
-    respList = PyEval_CallObject(self->callback, args);
+    args = Py_BuildValue("(OO)", self, msgList);
+    PyObject* respList = PyEval_CallObject(self->callback, args);
     Py_DECREF(args);
     Py_DECREF(self);
     
@@ -72,23 +83,30 @@ static int PyPAM_conv(int num_msg, const struct pam_message **msg,
         return PAM_CONV_ERR;
     }
     
-    *resp = (struct pam_response *) malloc(PyList_Size(respList) * sizeof(struct pam_response));
+    *resp = (struct pam_response *) malloc(
+        PyList_Size(respList) * sizeof(struct pam_response));
 
-    spr = *resp;
-    for (i = 0; i < PyList_Size(respList); i++, spr++) {
-        respTuple = PyList_GetItem(respList, i);
-        resp_retcode = 0;
+    struct pam_response* spr = *resp;
+    for (int i = 0; i < PyList_Size(respList); i++, spr++) {
+        PyObject* respTuple = PyList_GetItem(respList, i);
+        char* resp_text;
+        int resp_retcode = 0;
         if (!PyArg_ParseTuple(respTuple, "si", &resp_text, &resp_retcode)) {
             free(*resp);
-            *resp = NULL;
             Py_DECREF(respList);
             return PAM_CONV_ERR;
         }
         spr->resp = strdup(resp_text);
         spr->resp_retcode = resp_retcode;
+        Py_DECREF(respTuple);
     }
+    
+    // Save this so we can free it later.
+    self->response_data = *resp;
+    self->response_len = PyList_Size(respList);
 
     Py_DECREF(respList);
+    
     return PAM_SUCCESS;
 }
 
@@ -104,10 +122,15 @@ static struct pam_conv python_conv = {
 
 static PyObject * PyPAM_pam(PyObject *self, PyObject *args)
 {
-    PyPAMObject         *p;
-    struct pam_conv     *spc;
+    PyPAMObject             *p;
+    struct pam_conv         *spc;
 
-    Py_TYPE(&PyPAMObject_Type) = &PyType_Type;
+    if (!PyArg_ParseTuple(args, "")) {
+        PyErr_SetString(PyExc_TypeError, "pam() takes no arguments");
+        return NULL;
+    }
+
+    PyPAMObject_Type.ob_type = &PyType_Type;
     p = (PyPAMObject *) PyObject_NEW(PyPAMObject, &PyPAMObject_Type);
 
     if ((spc = (struct pam_conv *) malloc(sizeof(struct pam_conv))) == NULL) {
@@ -119,11 +142,16 @@ static PyObject * PyPAM_pam(PyObject *self, PyObject *args)
     p->pamh = NULL;
     p->service = NULL;
     p->user = NULL;
-    p->callback = NULL;
-
     Py_INCREF(Py_None);
-    p->userData = Py_None;
+    p->callback = Py_None;
+    p->response_data = NULL;
+    p->response_len = 0;
+    Py_INCREF(Py_None);
+    p->user_data = Py_None;
     
+    p->dlh1 = dlopen("libpam.so", RTLD_LAZY | RTLD_GLOBAL);
+    p->dlh2 = dlopen("libpam_misc.so", RTLD_LAZY | RTLD_GLOBAL);
+
     return (PyObject *) p;
 }
 
@@ -134,26 +162,31 @@ static PyObject * PyPAM_start(PyObject *self, PyObject *args)
     PyObject            *callback = NULL;
     PyPAMObject         *_self = (PyPAMObject *) self;
 
-    if (!PyArg_ParseTuple(args, "s|sO:set_callback", &service, &user, &callback)) {
-        PyErr_SetString(PyExc_TypeError, "parameter error");
+    if (!PyArg_ParseTuple(args, "s|zO", &service, &user, &callback)) {
+        PyErr_SetString(PyExc_TypeError, "start(service, [user, [callback]])");
         return NULL;
     }
 
     if (callback != NULL && !PyCallable_Check(callback)) {
-        PyErr_SetString(PyExc_TypeError, "parameter must be a function");
+        PyErr_SetString(
+            PyExc_TypeError,
+            "the callback parameter must be a function"
+        );
         return NULL;
     }
 
     if (service) _self->service = strdup(service);
     if (user) _self->user = strdup(user);
 
+    Py_DECREF(_self->callback);
     if (callback) {
-        _self->callback = callback;
         Py_INCREF(callback);
+        _self->callback = callback;
         memcpy(_self->conv, &python_conv, sizeof(struct pam_conv));
         _self->conv->appdata_ptr = (void *) self;
     } else {
-        _self->callback = NULL;
+        Py_INCREF(Py_None);
+        _self->callback = Py_None;
         memcpy(_self->conv, &default_conv, sizeof(struct pam_conv));
     }
 
@@ -171,8 +204,8 @@ static PyObject * PyPAM_start(PyObject *self, PyObject *args)
 
 static PyObject * PyPAM_authenticate(PyObject *self, PyObject *args)
 {
-    int                 result, flags = 0;
-    PyPAMObject         *_self = (PyPAMObject *) self;
+    int                    result, flags = 0;
+    PyPAMObject*           _self = (PyPAMObject*) self;
     
     if (!PyArg_ParseTuple(args, "|i", &flags)) {
         PyErr_SetString(PyExc_TypeError, "parameter must be integer");
@@ -193,8 +226,8 @@ static PyObject * PyPAM_authenticate(PyObject *self, PyObject *args)
 
 static PyObject * PyPAM_setcred(PyObject *self, PyObject *args)
 {
-    int                 result, flags = 0;
-    PyPAMObject         *_self = (PyPAMObject *) self;
+    int                    result, flags = 0;
+    PyPAMObject            *_self = (PyPAMObject *) self;
     
     if (!PyArg_ParseTuple(args, "i", &flags)) {
         PyErr_SetString(PyExc_TypeError, "parameter must be integer");
@@ -204,7 +237,7 @@ static PyObject * PyPAM_setcred(PyObject *self, PyObject *args)
     result = pam_setcred(_self->pamh, flags);
     
     if (result != PAM_SUCCESS) {
-        PyPAM_Err(_self, result);
+        PyErr_SetString(PyPAM_Error, "Not authenticated");
         return NULL;
     }
 
@@ -215,8 +248,8 @@ static PyObject * PyPAM_setcred(PyObject *self, PyObject *args)
 
 static PyObject * PyPAM_acct_mgmt(PyObject *self, PyObject *args)
 {
-    int                 result, flags = 0;
-    PyPAMObject         *_self = (PyPAMObject *) self;
+    int                    result, flags = 0;
+    PyPAMObject            *_self = (PyPAMObject *) self;
     
     if (!PyArg_ParseTuple(args, "|i", &flags)) {
         PyErr_SetString(PyExc_TypeError, "parameter must be integer");
@@ -226,7 +259,7 @@ static PyObject * PyPAM_acct_mgmt(PyObject *self, PyObject *args)
     result = pam_acct_mgmt(_self->pamh, flags);
     
     if (result != PAM_SUCCESS) {
-        PyPAM_Err(_self, result);
+        PyErr_SetString(PyPAM_Error, "Not authenticated");
         return NULL;
     }
 
@@ -237,8 +270,8 @@ static PyObject * PyPAM_acct_mgmt(PyObject *self, PyObject *args)
 
 static PyObject * PyPAM_chauthtok(PyObject *self, PyObject *args)
 {
-    int                 result, flags = 0;
-    PyPAMObject         *_self = (PyPAMObject *) self;
+    int                    result, flags = 0;
+    PyPAMObject            *_self = (PyPAMObject *) self;
     
     if (!PyArg_ParseTuple(args, "|i", &flags)) {
         PyErr_SetString(PyExc_TypeError, "parameter must be integer");
@@ -248,7 +281,7 @@ static PyObject * PyPAM_chauthtok(PyObject *self, PyObject *args)
     result = pam_chauthtok(_self->pamh, flags);
     
     if (result != PAM_SUCCESS) {
-        PyPAM_Err(_self, result);
+        PyErr_SetString(PyPAM_Error, "Not authenticated");
         return NULL;
     }
 
@@ -259,8 +292,8 @@ static PyObject * PyPAM_chauthtok(PyObject *self, PyObject *args)
 
 static PyObject * PyPAM_open_session(PyObject *self, PyObject *args)
 {
-    int                 result, flags = 0;
-    PyPAMObject         *_self = (PyPAMObject *) self;
+    int                    result, flags = 0;
+    PyPAMObject            *_self = (PyPAMObject *) self;
     
     if (!PyArg_ParseTuple(args, "|i", &flags)) {
         PyErr_SetString(PyExc_TypeError, "parameter must be integer");
@@ -270,7 +303,7 @@ static PyObject * PyPAM_open_session(PyObject *self, PyObject *args)
     result = pam_open_session(_self->pamh, flags);
     
     if (result != PAM_SUCCESS) {
-        PyPAM_Err(_self, result);
+        PyErr_SetString(PyPAM_Error, "Not authenticated");
         return NULL;
     }
 
@@ -281,8 +314,8 @@ static PyObject * PyPAM_open_session(PyObject *self, PyObject *args)
 
 static PyObject * PyPAM_close_session(PyObject *self, PyObject *args)
 {
-    int                 result, flags = 0;
-    PyPAMObject         *_self = (PyPAMObject *) self;
+    int                    result, flags = 0;
+    PyPAMObject            *_self = (PyPAMObject *) self;
     
     if (!PyArg_ParseTuple(args, "|i", &flags)) {
         PyErr_SetString(PyExc_TypeError, "parameter must be integer");
@@ -292,7 +325,7 @@ static PyObject * PyPAM_close_session(PyObject *self, PyObject *args)
     result = pam_close_session(_self->pamh, flags);
     
     if (result != PAM_SUCCESS) {
-        PyPAM_Err(_self, result);
+        PyErr_SetString(PyPAM_Error, "Not authenticated");
         return NULL;
     }
 
@@ -310,11 +343,15 @@ static PyObject * PyPAM_set_item(PyObject *self, PyObject *args)
     
     if (PyArg_ParseTuple(args, "is", &item, &s_val)) {
         n_val = strdup(s_val);
-        if (item == PAM_USER) _self->user = n_val;
-        if (item == PAM_SERVICE) _self->service = n_val;
+        if (item == PAM_USER)
+            _self->user = n_val;
+        if (item == PAM_SERVICE)
+            _self->service = n_val;
         result = pam_set_item(_self->pamh, item, (void *) n_val);
     } else {
-		PyErr_Clear();
+        // An error occured parsing the tuple.  Clear it.  Then try to parse
+        // it a different way.
+        PyErr_Clear();
         if (PyArg_ParseTuple(args, "iO:set_callback", &item, &o_val)) {
             if (item == PAM_CONV && !PyCallable_Check(o_val)) {
                 PyErr_SetString(PyExc_TypeError, "parameter must be a function");
@@ -345,10 +382,10 @@ static PyObject * PyPAM_set_item(PyObject *self, PyObject *args)
 
 static PyObject * PyPAM_get_item(PyObject *self, PyObject *args)
 {
-    int                 result, item;
-    const void          *val;
+    int                    result, item;
+    const void            *val;
     PyObject            *retval;
-    PyPAMObject         *_self = (PyPAMObject *) self;
+    PyPAMObject            *_self = (PyPAMObject *) self;
     
     if (!PyArg_ParseTuple(args, "i", &item)) {
         PyErr_SetString(PyExc_TypeError, "bad parameter");
@@ -373,9 +410,9 @@ static PyObject * PyPAM_get_item(PyObject *self, PyObject *args)
 
 static PyObject * PyPAM_putenv(PyObject *self, PyObject *args)
 {
-    int                 result;
+    int                    result;
     char                *val;
-    PyPAMObject         *_self = (PyPAMObject *) self;
+    PyPAMObject            *_self = (PyPAMObject *) self;
     
     if (!PyArg_ParseTuple(args, "s", &val)) {
         PyErr_SetString(PyExc_TypeError, "parameter must be a string");
@@ -385,7 +422,7 @@ static PyObject * PyPAM_putenv(PyObject *self, PyObject *args)
     result = pam_putenv(_self->pamh, val);
     
     if (result != PAM_SUCCESS) {
-        PyPAM_Err(_self, result);
+        PyErr_SetString(PyPAM_Error, "Not authenticated");
         return NULL;
     }
 
@@ -421,7 +458,7 @@ static PyObject * PyPAM_getenvlist(PyObject *self, PyObject *args)
 {
     char                **result, *cp;
     PyObject            *retval, *entry;
-    PyPAMObject         *_self = (PyPAMObject *) self;
+    PyPAMObject            *_self = (PyPAMObject *) self;
     
     result = pam_getenvlist(_self->pamh);
     
@@ -441,43 +478,58 @@ static PyObject * PyPAM_getenvlist(PyObject *self, PyObject *args)
     return retval;
 }
 
-static PyObject * PyPAM_setUserData(PyObject *self, PyObject *args)
+static PyObject * PyPAM_set_userdata(PyObject *self, PyObject *args)
 {
-    PyObject            *userData = NULL;
-    PyPAMObject         *_self = (PyPAMObject *) self;
+    PyPAMObject     *_self = (PyPAMObject *) self;
+    PyObject        *user_data;
 
-    if (!PyArg_ParseTuple(args, "O", &userData)) {
-        PyErr_SetString(PyExc_TypeError, "parameter error");
+    if (!PyArg_ParseTuple(args, "O", &user_data)) {
+        PyErr_SetString(
+            PyExc_TypeError,
+            "set_userdata() expects exactly 1 argument"
+        );
         return NULL;
     }
 
-    Py_XDECREF(_self->userData);
-    if (userData) {
-        _self->userData = userData;
-        Py_INCREF(userData);
-    } else {
-        _self->userData = NULL;
-    }
+    Py_DECREF(_self->user_data);
+    Py_INCREF(user_data);
+    _self->user_data = user_data;
 
     Py_INCREF(Py_None);
-
     return Py_None;
 }
 
+static PyObject * PyPAM_get_userdata(PyObject *self, PyObject *args)
+{
+    PyPAMObject     *_self = (PyPAMObject *) self;
+
+    if (!PyArg_ParseTuple(args, "")) {
+        PyErr_SetString(
+            PyExc_TypeError,
+            "get_userdata() takes no arguments"
+        );
+        return NULL;
+    }
+
+    Py_INCREF(_self->user_data);
+    return _self->user_data;
+}
+
 static PyMethodDef PyPAMObject_Methods[] = {
-    {"start",         PyPAM_start,         METH_VARARGS, NULL},
-    {"authenticate",  PyPAM_authenticate,  METH_VARARGS, NULL},
-    {"setcred",       PyPAM_setcred,       METH_VARARGS, NULL},
-    {"acct_mgmt",     PyPAM_acct_mgmt,     METH_VARARGS, NULL},
-    {"chauthtok",     PyPAM_chauthtok,     METH_VARARGS, NULL},
-    {"open_session",  PyPAM_open_session,  METH_VARARGS, NULL},
+    {"start", PyPAM_start, METH_VARARGS, NULL},
+    {"authenticate", PyPAM_authenticate, METH_VARARGS, NULL},
+    {"setcred", PyPAM_setcred, METH_VARARGS, NULL},
+    {"acct_mgmt", PyPAM_acct_mgmt, METH_VARARGS, NULL},
+    {"chauthtok", PyPAM_chauthtok, METH_VARARGS, NULL},
+    {"open_session", PyPAM_open_session, METH_VARARGS, NULL},
     {"close_session", PyPAM_close_session, METH_VARARGS, NULL},
-    {"set_item",      PyPAM_set_item,      METH_VARARGS, NULL},
-    {"get_item",      PyPAM_get_item,      METH_VARARGS, NULL},
-    {"putenv",        PyPAM_putenv,        METH_VARARGS, NULL},
-    {"getenv",        PyPAM_getenv,        METH_VARARGS, NULL},
-    {"getenvlist",    PyPAM_getenvlist,    METH_VARARGS, NULL},
-    {"setUserData",   PyPAM_setUserData,   METH_VARARGS, NULL},
+    {"set_item", PyPAM_set_item, METH_VARARGS, NULL},
+    {"get_item", PyPAM_get_item, METH_VARARGS, NULL},
+    {"putenv", PyPAM_putenv, METH_VARARGS, NULL},
+    {"getenv", PyPAM_getenv, METH_VARARGS, NULL},
+    {"getenvlist", PyPAM_getenvlist, METH_VARARGS, NULL},
+    {"set_userdata", PyPAM_set_userdata, METH_VARARGS, NULL},
+    {"get_userdata", PyPAM_get_userdata, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}
 };
 
@@ -487,7 +539,14 @@ static void PyPAM_dealloc(PyPAMObject *self)
     free(self->user);
     free(self->conv);
     pam_end(self->pamh, PAM_SUCCESS);
-    PyObject_FREE(self);
+    dlclose(self->dlh2);
+    dlclose(self->dlh1);
+    PyMem_DEL(self);
+}
+
+static PyObject * PyPAM_getattr(PyPAMObject *self, char *name)
+{
+    return Py_FindMethod(PyPAMObject_Methods, (PyObject *) self, name);
 }
 
 static PyObject * PyPAM_repr(PyPAMObject *self)
@@ -496,43 +555,30 @@ static PyObject * PyPAM_repr(PyPAMObject *self)
     
     snprintf(buf, 1024, "<pam object, service=\"%s\", user=\"%s\", conv=%p, pamh=%p>",
         self->service, self->user, self->conv, self->pamh);
-    return PyUnicode_FromString(buf);
+    return PyString_FromString(buf);
 }
 
 static PyTypeObject PyPAMObject_Type = {
-    PyVarObject_HEAD_INIT(&PyType_Type, 0)   /* Must fill in type value later */
+    PyObject_HEAD_INIT(0)    /* Must fill in type value later */
+    0,
     "pam",
     sizeof(PyPAMObject),
     0,
-    (destructor)PyPAM_dealloc,      /*tp_dealloc*/
-    0,      /*tp_print*/
-    0,      /*tp_getattr*/
-    0,      /*tp_setattr*/
-    0,      /*tp_compare*/
-    (reprfunc)PyPAM_repr,           /*tp_repr*/
-    0,      /*tp_as_number*/
-    0,      /*tp_as_sequence*/
-    0,      /*tp_as_mapping*/
-    0,      /*hash*/
-    0,      /*ternary*/
-    0,      /*another repr*/
-    (getattrofunc)PyObject_GenericGetAttr,
+    (destructor)PyPAM_dealloc,        /*tp_dealloc*/
+    0,        /*tp_print*/
+    (getattrfunc)PyPAM_getattr,        /*tp_getattr*/
+    0,        /*tp_setattr*/
+    0,        /*tp_compare*/
+    (reprfunc)PyPAM_repr,            /*tp_repr*/
+    0,        /*tp_as_number*/
+    0,        /*tp_as_sequence*/
+    0,        /*tp_as_mapping*/
 };
 
 static PyMethodDef PyPAM_Methods[] = {
     {"pam", PyPAM_pam, METH_VARARGS, NULL},
     {NULL, NULL, 0, NULL}
 };
-
-#if PY_MAJOR_VERSION > 2
-static struct PyModuleDef PyPAM_Module = {
-    PyModuleDef_HEAD_INIT,
-    "PAM",    /* name of module */
-    NULL,     /* module documentation */
-    -1,       /* size of per-interpreter state */
-    PyPAM_Methods
-};
-#endif
 
 static char PyPAMObject_doc[] = "";
 
@@ -543,11 +589,7 @@ static char PyPAMObject_doc[] = "";
  */
 static void insint(PyObject *d, char *name, int value)
 {
-#if PY_MAJOR_VERSION > 2
-    PyObject            *v = PyLong_FromLong((long) value);
-#else
-    PyObject            *v = PyInt_FromLong((long) value);
-#endif
+    PyObject*        v = PyInt_FromLong((long) value);
 
     if (!v || PyDict_SetItemString(d, name, v))
         PyErr_Clear();
@@ -555,32 +597,20 @@ static void insint(PyObject *d, char *name, int value)
     Py_XDECREF(v);
 }
 
-#if PY_MAJOR_VERSION > 2
-PyMODINIT_FUNC PyInit_PAM(void)
-#else
 void initPAM(void)
-#endif
 {
     PyObject            *m, *d;
 
-#if PY_MAJOR_VERSION > 2
-    m = PyModule_Create(&PyPAM_Module);
-#else
     m = Py_InitModule("PAM", PyPAM_Methods);
-#endif
     d = PyModule_GetDict(m);
     
     PyPAM_Error = PyErr_NewException("PAM.error", NULL, NULL);
     if (PyPAM_Error == NULL)
-#if PY_MAJOR_VERSION > 2
-		return m;
-#else
-		return;
-#endif
+        return;
     PyDict_SetItemString(d, "error", PyPAM_Error);
 
+    PyPAMObject_Type.ob_type = &PyType_Type;
     PyPAMObject_Type.tp_doc = PyPAMObject_doc;
-    PyPAMObject_Type.tp_methods = PyPAMObject_Methods,
     Py_INCREF(&PyPAMObject_Type);
 
     insint(d, "PAM_SUCCESS", PAM_SUCCESS);
@@ -644,7 +674,4 @@ void initPAM(void)
     insint(d, "PAM_BINARY_PROMPT", PAM_BINARY_PROMPT);
 #endif
 
-#if PY_MAJOR_VERSION > 2
-    return m;
-#endif
 }

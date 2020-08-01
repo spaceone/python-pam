@@ -1,19 +1,22 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 
-"""Setup script for the Python-PAM module distribution."""
+from distutils.core import setup, Extension
 
-import distutils
-from distutils.core import setup
-from distutils.extension import Extension
-
-ext = Extension(
-    name="PAM",
-    libraries=["pam","pam_misc"],
-    sources=["PAMmodule.c"]
+setup(
+    name='PyPAM',
+    version='0.5.0',
+    description='PAM (Pluggable Authentication Module) bindings for Python',
+    author='Rob Riggs',
+    author_email='rob+pypam@pangalactic.org',
+    url='http://www.pangalactic.org/PyPAM',
+    license='LGPL',
+    ext_modules=[
+        Extension(
+            'PAMmodule',
+            ['PAMmodule.c'],
+            libraries=['pam', 'pam_misc'],
+            extra_compile_args = ['-std=c99'],
+        )
+    ],
 )
-##print ext.__dict__; sys.exit(1)
 
-setup (name = 'PAM',
-       version = '0.4.2',
-       description = 'Python bindings for PAM',
-       ext_modules = [ext])
