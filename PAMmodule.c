@@ -61,6 +61,7 @@ static int PyPAM_conv(int num_msg, const struct pam_message **msg,
     
     args = Py_BuildValue("(OOO)", self, msgList, self->userData);
     respList = PyEval_CallObject(self->callback, args);
+    Py_DECREF(msgList);
     Py_DECREF(args);
     Py_DECREF(self);
     
@@ -483,6 +484,8 @@ static PyMethodDef PyPAMObject_Methods[] = {
 
 static void PyPAM_dealloc(PyPAMObject *self)
 {
+    Py_XDECREF(self->callback);
+    Py_XDECREF(self->userData);
     free(self->service);
     free(self->user);
     free(self->conv);
